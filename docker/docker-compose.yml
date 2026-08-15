@@ -1,0 +1,133 @@
+# kafka (KRaft, single broker), flink jobmanager+taskmanager, elasticsearch, kibana.
+# Everything binds to 127.0.0.1 - nothing here is meant to be reachable off this box.
+
+x-flink-common: &flink-common
+  build:
+    context: ./flink
+    args:
+      FLINK_IMAGE_TAG: ${FLINK_IMAGE_TAG}
+      FLINK_VERSION: ${FLINK_VERSION}
+  environment:
+    FLINK_PROPERTIES: |
+      jobmanager.rpc.address: jobmanager
+      taskmanager.numberOfTaskSlots: ${FLINK_TM_NUM_SLOTS}
+      parallelism.default: 1
+      jobmanager.memory.process.size: ${FLINK_JM_PROCESS_SIZE}
+      taskmanager.memory.process.size: ${FLINK_TM_PROCESS_SIZE}
+      taskmanager.rpc.port: 6122
+  volumes:
+    # pipeline/ is bind-mounted, not baked into the image, so `make submit` always
+    # runs whatever is on disk right now - no rebuild-to-test-a-one-line-change loop.
+    - ../pipeline:/opt/pipeline:ro
+
+services:
+  kafka:
+    image: apache/kafka:${KAFKA_IMAGE_TAG}
+    hostname: kafka
+    ports:
+      # Only the host listener is published. The broker listener (9092) is
+      # container-network-only - see README "Kafka dual listener" section.
+      - "127.0.0.1:29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093,BROKER://0.0.0.0:9092,HOST://0.0.0.0:29092
+      # Two different addresses advertised for the same broker on purpose: containers
+      # resolve "kafka" on the compose network, the host cannot.
+      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka:9092,HOST://localhost:29092
+      KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: ${KAFKA_LOG_RETENTION_HOURS}
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS}
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      # Real functional check (asks the broker for its API versions), not just a
+      # TCP probe - a broker can accept connections before it's actually ready.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  jobmanager:
+    <<: *flink-common
+    hostname: jobmanager
+    command: jobmanager
+    ports:
+      - "127.0.0.1:8081:8081"
+    healthcheck:
+      # No curl in this image - a bare TCP connect to the web UI port is enough to
+      # know the process is up and accepting requests.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8081' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  taskmanager:
+    <<: *flink-common
+    hostname: taskmanager
+    command: taskmanager
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6122' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    hostname: elasticsearch
+    environment:
+      discovery.type: single-node
+      # Security OFF - deliberate, temporary trade-off. See README "known trade-offs".
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      # The '&' in this URL is why the whole query string is single-quoted: unquoted,
+      # the shell treats it as "run curl in the background, exit 0 immediately" and
+      # the healthcheck passes unconditionally no matter what curl actually returns.
+      test: ["CMD-SHELL", "curl -s -f 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION}
+    hostname: kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      NODE_OPTIONS: --max-old-space-size=${KIBANA_MAX_OLD_SPACE_MB}
+    ports:
+      - "127.0.0.1:5601:5601"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f 'http://localhost:5601/api/status' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+volumes:
+  kafka-data:
+  es-data:

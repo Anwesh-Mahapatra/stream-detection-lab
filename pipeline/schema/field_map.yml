@@ -1,0 +1,7 @@
+# STUB - I fill this in. Mapping-as-data: k8s audit JSON path -> ECS field path.
+# Whether parse_audit_event() actually reads this file at runtime, or this is just
+# documentation for a mapping that's hardcoded in Python, is my call to make.
+#
+# example (commented out - not live config):
+# user.username: user.name
+# responseStatus.code: http.response.status_code

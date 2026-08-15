@@ -1,0 +1,4 @@
+# tests/fixtures/ - real audit events captured from the live k3s cluster, as .json
+# files, one event per file. Not synthesized - these need to be actual API server
+# output so the parser is tested against reality, not against my assumptions about
+# reality. Delete this file once the directory has real content.

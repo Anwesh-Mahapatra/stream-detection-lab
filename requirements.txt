@@ -1,0 +1,9 @@
+# apache-flink MUST match the Flink cluster version (docker/.env FLINK_VERSION) -
+# PyFlink talks to the cluster over a versioned RPC/gateway protocol, and a
+# mismatched client is the single most common PyFlink failure mode. 1.18.1 here
+# pairs with FLINK_IMAGE_TAG=1.18.1-scala_2.12-java11 in docker/.env.example.
+apache-flink==1.18.1
+
+# Below this line: normal Python tooling, no cluster-version coupling - bump freely.
+pytest==8.3.3
+pyyaml==6.0.2

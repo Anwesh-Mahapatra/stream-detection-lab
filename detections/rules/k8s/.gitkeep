@@ -1,0 +1,3 @@
+# detections/rules/k8s/ - detection rules go here as YAML, one file per rule. Empty
+# until there's ECS data flowing to write rules against. Delete this file once the
+# directory has real content - git doesn't track empty directories.
