@@ -1,0 +1,40 @@
+{
+    "@timestamp": 1786833592.164778,
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "67ae1d8f-9dd6-463c-96f7-a565f3ac8e4f",
+    "stage": "ResponseComplete",
+    "requestURI": "/apis/rbac.authorization.k8s.io/v1/rolebindings?allowWatchBookmarks=true&resourceVersionMatch=NotOlderThan&sendInitialEvents=true&timeout=6m13s&timeoutSeconds=373&watch=true",
+    "verb": "watch",
+    "user": {
+        "username": "system:kube-controller-manager",
+        "groups": [
+            "system:authenticated"
+        ],
+        "extra": {
+            "authentication.kubernetes.io/credential-id": [
+                "X509SHA256=8631115c17cee66200ff7bcaaa3edf7ec1a38d873c33dda77eb0a9ee7b244916"
+            ]
+        }
+    },
+    "sourceIPs": [
+        "127.0.0.1"
+    ],
+    "userAgent": "k3s/v1.36.3+k3s1 (linux/amd64) kubernetes/5aed4d7/shared-informers",
+    "objectRef": {
+        "resource": "rolebindings",
+        "apiGroup": "rbac.authorization.k8s.io",
+        "apiVersion": "v1"
+    },
+    "responseStatus": {
+        "metadata": {},
+        "code": 200
+    },
+    "requestReceivedTimestamp": "2026-08-15T22:33:38.667711Z",
+    "stageTimestamp": "2026-08-15T22:39:52.164778Z",
+    "annotations": {
+        "authorization.k8s.io/decision": "allow",
+        "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"system:kube-controller-manager\" of ClusterRole \"system:kube-controller-manager\" to User \"system:kube-controller-manager\""
+    }
+}

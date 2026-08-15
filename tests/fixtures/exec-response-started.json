@@ -1,0 +1,43 @@
+{
+    "@timestamp": 1786834137.169512,
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "70bfee6d-4218-40fd-8d20-710719c02677",
+    "stage": "ResponseStarted",
+    "requestURI": "/api/v1/namespaces/default/pods/test/exec?command=%2Fbin%2Fsh&command=-c&command=id&container=test&stdin=true&stdout=true&tty=true",
+    "verb": "get",
+    "user": {
+        "username": "system:admin",
+        "groups": [
+            "system:masters",
+            "system:authenticated"
+        ],
+        "extra": {
+            "authentication.kubernetes.io/credential-id": [
+                "X509SHA256=78c369127776ea3c45d4dce5185d7bb2af46dc9f6d66c151fd745bd8f0ab5777"
+            ]
+        }
+    },
+    "sourceIPs": [
+        "127.0.0.1"
+    ],
+    "userAgent": "kubectl/v1.36.3+k3s1 (linux/amd64) kubernetes/5aed4d7",
+    "objectRef": {
+        "resource": "pods",
+        "namespace": "default",
+        "name": "test",
+        "apiVersion": "v1",
+        "subresource": "exec"
+    },
+    "responseStatus": {
+        "metadata": {},
+        "code": 101
+    },
+    "requestReceivedTimestamp": "2026-08-15T22:48:57.163727Z",
+    "stageTimestamp": "2026-08-15T22:48:57.169512Z",
+    "annotations": {
+        "authorization.k8s.io/decision": "allow",
+        "authorization.k8s.io/reason": ""
+    }
+}
