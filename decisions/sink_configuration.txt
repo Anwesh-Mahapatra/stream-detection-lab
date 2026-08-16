@@ -1,0 +1,3 @@
+DeliveryGuarantee is set to AT_LEAST_ONCE because may write duplicates. Safe, because row_id makes each record uniquely identifiable in ES, so a duplicate overwrites rather than double-counts.
+
+In parser we have handles the row_id thingy that helps us distinguish 2 events with the same auditID

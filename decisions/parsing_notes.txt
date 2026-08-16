@@ -1,0 +1,5 @@
+There are events with the same auditID, 2 events with the same auditID
+To dedup, we have extracted stage from the raw log: ("stage": "ResponseComplete")
+And created a new field in the parser, row_id which is basically auditID+stage
+So the events having the same auditID have something unique to get differentiated
+
