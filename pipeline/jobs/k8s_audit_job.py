@@ -1,26 +1,63 @@
-# STUB - I write this. The Flink job body (execution env, Kafka source/sink wiring,
-# checkpointing, how parse_audit_event gets called per-record) is the thing I need
-# to be able to defend line by line, so Claude is not allowed to fill this in.
-#
-# Per the architecture in the README, this covers the raw-topic -> ECS-topic hop.
-# Whether the ECS-topic -> Elasticsearch hop is a second job in this same file, a
-# separate file, or Flink SQL instead of the DataStream API is an open design
-# decision - see README "known trade-offs" re: the Elasticsearch connector version
-# question, which needs answering before that hop can be built either way.
+from pyflink.datastream import StreamExecutionEnvironment
+from pyflink.datastream.connectors.kafka import KafkaSource, KafkaOffsetsInitializer
+from pyflink.common import SimpleStringSchema, WatermarkStrategy
+import json
+from pyflink.common.typeinfo import Types
+from pipeline.parsers.k8s_audit import parse_audit_event
+
+BROKERS = "kafka:9092"
+SOURCE_TOPIC = "k8s-audit-raw"
+GROUP_ID = "flink-k8s-audit"
+
+#Flink and parser wiring (k8s audit events)
+
+
+def to_ecs(line: str) -> str | None:
+    try:
+        doc = parse_audit_event(json.loads(line))
+    except json.JSONDecodeError:
+        return None
+    if doc is None:
+        return None
+    return json.dumps(doc)
+
+
+
+
+
+
+
+
+
+
+
 
 
 def main() -> None:
-    """
-    STUB - implement this.
+    env = StreamExecutionEnvironment.get_execution_environment()
+    env.set_parallelism(1)
 
-    Responsibilities this job needs to cover:
-      - StreamExecutionEnvironment setup (parallelism, checkpointing interval/mode)
-      - a KafkaSource reading k8s-audit-raw, starting from committed offsets
-      - a map/process step calling pipeline.parsers.k8s_audit.parse_audit_event
-        per record, plus a decision on what happens to records that fail to parse
-      - a KafkaSink writing the result to k8s-audit-ecs
-    """
-    raise NotImplementedError("k8s_audit_job.main: build the Flink pipeline")
+    source = (
+        KafkaSource.builder()
+        .set_bootstrap_servers(BROKERS)
+        .set_topics(SOURCE_TOPIC)
+        .set_group_id(GROUP_ID)
+        .set_starting_offsets(KafkaOffsetsInitializer.earliest())
+        .set_value_only_deserializer(SimpleStringSchema())
+        .build()
+    )
+
+    stream = env.from_source(source, WatermarkStrategy.no_watermarks(), "k8s-audit-raw")
+
+    #Linking the parser logic to the stream
+    ecs = (
+        stream
+        .map(to_ecs, output_type=Types.STRING())
+        .filter(lambda x: x is not None)
+    )
+    ecs.print()
+
+    env.execute("k8s-audit-ecs")
 
 
 if __name__ == "__main__":

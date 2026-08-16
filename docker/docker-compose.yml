@@ -18,7 +18,7 @@ x-flink-common: &flink-common
   volumes:
     # pipeline/ is bind-mounted, not baked into the image, so `make submit` always
     # runs whatever is on disk right now - no rebuild-to-test-a-one-line-change loop.
-    - ../pipeline:/opt/pipeline:ro
+    - ../pipeline:/opt/sdl/pipeline:ro
 
 services:
   kafka:

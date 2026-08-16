@@ -18,10 +18,10 @@ logs: ## Tail logs from every service
 	$(COMPOSE) logs -f --tail=100
 
 submit: ## Submit pipeline/jobs/k8s_audit_job.py to the Flink cluster
-	$(COMPOSE) exec jobmanager flink run -py /opt/pipeline/jobs/k8s_audit_job.py --pyFiles /opt/pipeline
+	$(COMPOSE) exec jobmanager flink run -py /opt/sdl/pipeline/jobs/k8s_audit_job.py --pyFiles /opt/sdl
 
 test: ## Run pytest locally (needs: pip install -r requirements.txt)
-	pytest tests/ -v
+	python3 -m pytest tests/ -v
 
 clean: ## Stop all services and delete volumes - destroys Kafka/ES data, not reversible
 	$(COMPOSE) down -v

@@ -25,6 +25,8 @@ RUN pip3 install --no-cache-dir apache-flink==${FLINK_VERSION}
 ADD https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.2.0-1.18/flink-sql-connector-kafka-3.2.0-1.18.jar \
     /opt/flink/lib/flink-sql-connector-kafka.jar
 
+RUN chmod 644 /opt/flink/lib/*.jar
+
 # No Elasticsearch connector jar here on purpose - see README "known trade-offs":
 # Flink's official ES connector only ships an elasticsearch7/elasticsearch8 build,
 # and matching one against Flink 1.18 + your ES 9.x cluster is an open question,
