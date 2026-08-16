@@ -1,0 +1,12 @@
+k8s emits nanosecond precision. But elastic search date truncates to milliseconds. Meaning 2 audit rows microseconds apart become identical timestamps. I have decided to control this with parser
+
+requestReceivedTimestamp will be event.start
+stageTimestamp will be event.end
+
+fluent-bit timestamp will be event.ingested
+
+auditID will be the event.id - Question is there maybe one auditID and 2 audit events. One with responseStarted and one with responseCompleted or something of that sorts. Not sure yet.
+
+event.type, let it be an array
+
+event.action should be exec, makes detection easier, parser should do the heavy lifting here
