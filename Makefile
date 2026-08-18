@@ -1,4 +1,4 @@
-.PHONY: up down topics logs submit test clean help
+.PHONY: up down topics logs submit test test-enrich clean help
 
 COMPOSE := docker compose -f docker/docker-compose.yml --env-file docker/.env
 
@@ -22,6 +22,9 @@ submit: ## Submit pipeline/jobs/k8s_audit_job.py to the Flink cluster
 
 test: ## Run pytest locally (needs: pip install -r requirements.txt)
 	python3 -m pytest tests/ -v
+
+test-enrich: ## Run only the allowlist enrichment tests
+	pytest tests/test_allowlist_enrich.py -v
 
 clean: ## Stop all services and delete volumes - destroys Kafka/ES data, not reversible
 	$(COMPOSE) down -v

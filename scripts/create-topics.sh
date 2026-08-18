@@ -19,5 +19,16 @@ for topic in k8s-audit-raw k8s-audit-ecs; do
         --replication-factor 1
 done
 
+echo "==> Creating topic: k8s-allowlist (compacted)"
+$COMPOSE exec -T kafka /opt/kafka/bin/kafka-topics.sh \
+    --bootstrap-server localhost:9092 \
+    --create --if-not-exists \
+    --topic "k8s-allowlist" \
+    --partitions 1 \
+    --replication-factor 1 \
+    --config cleanup.policy=compact \
+    --config min.cleanable.dirty.ratio=0.01 \
+    --config segment.ms=60000
+
 echo "==> Current topics:"
 $COMPOSE exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list

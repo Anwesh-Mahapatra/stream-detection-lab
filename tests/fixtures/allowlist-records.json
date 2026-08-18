@@ -1,0 +1,16 @@
+{
+  "records": [
+    {
+      "key": "default:system:admin",
+      "value": "{\"approved_by\": \"secops\", \"reason\": \"break-glass exec\"}"
+    },
+    {
+      "key": "kube-system:system:admin",
+      "value": "{\"approved_by\": \"secops\", \"reason\": \"temporary incident access\"}"
+    },
+    {
+      "key": "kube-system:system:admin",
+      "value": null
+    }
+  ]
+}

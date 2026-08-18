@@ -151,3 +151,29 @@ curl -s http://127.0.0.1:5601/api/status
 scripts/replay-topic.sh k8s-audit-raw <your-consumer-group-id>
 make submit
 ```
+
+## Allowlist enrichment (in progress)
+
+```
+k3s audit.log
+   -> Fluent Bit          (ship only, zero transform)
+   -> Kafka: k8s-audit-raw
+   -> Flink (PyFlink)     (raw JSON -> ECS, broadcast-joined against
+                            Kafka: k8s-allowlist, compacted, read from earliest())
+   -> Kafka: k8s-audit-ecs
+   -> Flink Elasticsearch sink
+   -> Elasticsearch
+```
+
+`k8s-allowlist` is a compacted topic keyed by `<namespace>:<username>`, whose
+value is either a JSON grant or a tombstone (`null`, meaning revoked). The
+Flink job folds the whole topic into broadcast state on startup so every
+parallel instance ends up with the same allowlist, then stamps
+`k8s.audit.approved_exec` onto exec-subresource events by checking the
+requesting namespace+user against that state - everything else is passed
+through unstamped. The pure logic lives in `pipeline/enrich/allowlist.py`
+(`apply_allowlist_record`, `stamp_approval`); the Flink wiring is sketched but
+commented out in `pipeline/jobs/k8s_audit_job.py` until both functions are
+implemented and the open questions in `decisions/allowlist_enrichment.txt`
+(where in the chain to connect it, how the allowlist topic's Kafka key gets
+read at all) are settled.
