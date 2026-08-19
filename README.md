@@ -81,10 +81,17 @@ from `.env.example` by `scripts/bootstrap.sh`) - lower them if this box gets tig
 ## Bringing it up
 
 ```bash
-scripts/bootstrap.sh   # generates docker/.env, checks prerequisites
-make up                # builds the Flink image, starts everything
-make topics             # creates k8s-audit-raw and k8s-audit-ecs
+scripts/bootstrap.sh        # generates docker/.env, checks prerequisites
+make up                    # builds the Flink image, starts everything
+scripts/setup-es-security.sh   # sets the kibana_system password + creates fluentbit_writer
+make topics                # creates k8s-audit-raw and k8s-audit-ecs
 ```
+
+`setup-es-security.sh` is not optional: Elasticsearch bootstraps the `elastic`
+password by itself, but `kibana_system` has none until it is pushed through the
+`_security` API, and **Kibana will not start** until its configured password
+matches. Re-run it any time; it is idempotent. Log in to Kibana as `elastic` with
+the `ELASTIC_PASSWORD` from `docker/.env`.
 
 Then start Fluent Bit separately (outside Docker) pointed at
 `fluent-bit/fluent-bit.conf` - e.g. `fluent-bit -c fluent-bit/fluent-bit.conf` run
@@ -111,20 +118,32 @@ docker compose -f docker/docker-compose.yml --env-file docker/.env exec kafka \
 # Flink cluster is up
 curl -s http://127.0.0.1:8081/overview
 
-# Elasticsearch is up (note the quotes - see "known trade-offs" on why that matters)
-curl -s 'http://127.0.0.1:9200/_cluster/health?pretty'
+# Elasticsearch is up. Security is on, so this needs credentials - without -u it
+# returns 401. (Note the quotes too - see "known trade-offs" on why that matters.)
+curl -s -u elastic:"$(grep -oP '(?<=^ELASTIC_PASSWORD=).*' docker/.env)" \
+    'http://127.0.0.1:9200/_cluster/health?pretty'
 
-# Kibana is up
-curl -s http://127.0.0.1:5601/api/status
+# Kibana is up. NOTE: KIBANA_BIND controls which address Kibana listens on, and it
+# is NOT 127.0.0.1 on this host - a specific bind address means only that address
+# answers. Use the value of KIBANA_BIND from docker/.env:
+curl -s "http://$(grep -oP '(?<=^KIBANA_BIND=).*' docker/.env):5601/api/status"
 ```
 
 ## Known trade-offs
 
-- **Elasticsearch security is disabled** (`xpack.security.enabled: false`). This
-  was already proven end-to-end (TLS, private CA, least-privilege ingest user) in
-  a different setup - redoing it here would slow down the part of this repo that's
-  actually about learning Kafka/Flink. **TODO: re-enable before this touches
-  anything beyond localhost.**
+- **Elasticsearch security is ENABLED, but without TLS** (`xpack.security.enabled:
+  true`, plain `http` on 9200). It was switched on because Kibana's detection engine
+  is unusable without it: the Security app calls `/_security/user/_has_privileges`,
+  which has no handler at all when security is off, and the UI reports the
+  unhelpful "Failed to retrieve detection engine privileges / undefined: undefined
+  (400)". Single-node discovery permits security without transport TLS, so this is
+  **authentication without encryption** - credentials and documents cross the wire
+  in the clear. Acceptable on an isolated lab network; not acceptable anywhere real.
+  **Remaining TODO: add TLS (private CA) before this leaves a trusted network.**
+  Accounts: `elastic` (superuser, this is your Kibana login), `kibana_system`
+  (Kibana's own connection), and `fluentbit_writer` (role `k8s_audit_writer` - may
+  write `k8s-audit*` and nothing else). All provisioned by
+  `scripts/setup-es-security.sh`; passwords live in the gitignored `docker/.env`.
 - **Single Kafka broker, replication factor 1.** No HA. Fine for a lab; a broker
   restart means a brief outage, not just a failover.
 - **Single Flink TaskManager, 2 slots.** Enough to prove the pipeline works, not
@@ -137,13 +156,19 @@ curl -s http://127.0.0.1:5601/api/status
   This needs a real decision (find/verify a compatible connector build, or write a
   custom sink) before `pipeline/jobs/k8s_audit_job.py`'s ES-sink half can work.
   Not solved here on purpose - it's an open question, not a hidden one.
-- **No auth anywhere in this stack** - Kafka listeners are PLAINTEXT, ES has no
-  users. This was originally acceptable because everything bound to `127.0.0.1`
-  only. **That is no longer universally true:** `KIBANA_BIND` in `docker/.env` can
-  publish Kibana on a LAN address, and on this host it is set to one. Kibana has no
-  login, so anyone who can reach that address can read and write every index -
-  including the k8s audit data. Everything else (ES 9200, Flink 8081, Kafka 29092)
-  is still localhost-only. Set `KIBANA_BIND=127.0.0.1` to close it again.
+- **Kafka has no auth** - listeners are PLAINTEXT with no SASL. Acceptable only
+  because 29092 is bound to `127.0.0.1`. Elasticsearch and Kibana *do* now require
+  a login (see above), which is what makes the LAN binding below survivable:
+  `KIBANA_BIND` in `docker/.env` publishes Kibana on a LAN address, and on this host
+  it is set to one. Reaching it now gets you a login prompt rather than the data.
+  Set `KIBANA_BIND=127.0.0.1` to close it entirely.
+- **Prometheus and Grafana are also LAN-bound on this host** via `MONITORING_BIND`
+  in `monitoring/.env`. Grafana at least has a login (`GRAFANA_ADMIN_PASSWORD`, which
+  must not be left at `admin` while it is off localhost). **Prometheus has no
+  authentication of any kind** - there is nothing to enable. Anyone who can reach
+  9090 can query every metric and use the expression browser. Set
+  `MONITORING_BIND=127.0.0.1` to close both.
+- **Still localhost-only:** ES 9200, Flink 8081, Kafka 29092.
 - **A ufw rule will not protect a published container port.** Docker installs its
   own iptables rules that bypass ufw's INPUT chain, so `ufw allow`/`deny` has no
   effect on anything in a `ports:` mapping. Source filtering has to go in the

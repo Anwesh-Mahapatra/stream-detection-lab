@@ -8,7 +8,10 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "127.0.0.1:9090:9090"
+      # Prometheus has NO authentication - none exists to turn on. Any address other
+      # than 127.0.0.1 means anyone who can reach it can query every metric and browse
+      # the expression UI. Override MONITORING_BIND in monitoring/.env to change this.
+      - "${MONITORING_BIND:-127.0.0.1}:9090:9090"
     restart: unless-stopped
   grafana:
     image: grafana/grafana:11.5.0
@@ -16,12 +19,18 @@ services:
     depends_on:
       - prometheus
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Default stays 'admin' so a fresh clone behaves as before. Set
+      # GRAFANA_ADMIN_PASSWORD in monitoring/.env (gitignored) when Grafana is bound
+      # anywhere other than localhost - see README "known trade-offs".
+      # NOTE: this is only read on FIRST start. After grafana-data exists, the
+      # password lives in that volume; change it in the UI or via grafana-cli.
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_AUTH_ANONYMOUS_ENABLED=false
     volumes:
       - grafana-data:/var/lib/grafana
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${MONITORING_BIND:-127.0.0.1}:3000:3000"
     restart: unless-stopped
 volumes:
   prometheus-data:

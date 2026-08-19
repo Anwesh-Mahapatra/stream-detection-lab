@@ -89,8 +89,15 @@ services:
     hostname: elasticsearch
     environment:
       discovery.type: single-node
-      # Security OFF - deliberate, temporary trade-off. See README "known trade-offs".
-      xpack.security.enabled: "false"
+      # Security ON. Required by anything that calls the _security APIs - notably
+      # Kibana's detection engine, which fails with "undefined: undefined (400)" when
+      # this is false because /_security/user/_has_privileges has no handler at all.
+      # HTTP TLS stays off (plain http on 9200); single-node discovery permits
+      # security without transport TLS, so this is auth-without-encryption.
+      xpack.security.enabled: "true"
+      # Only read while bootstrapping the .security index on first start with security
+      # enabled. Changing it later does nothing - use the _security API to rotate.
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       ES_JAVA_OPTS: ${ES_JAVA_OPTS}
     ulimits:
       memlock:
@@ -104,7 +111,9 @@ services:
       # The '&' in this URL is why the whole query string is single-quoted: unquoted,
       # the shell treats it as "run curl in the background, exit 0 immediately" and
       # the healthcheck passes unconditionally no matter what curl actually returns.
-      test: ["CMD-SHELL", "curl -s -f 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' || exit 1"]
+      # -u is required now that security is on: without it this 401s, the container
+      # never reports healthy, and kibana's depends_on gate never opens.
+      test: ["CMD-SHELL", "curl -s -f -u elastic:${ELASTIC_PASSWORD} 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 15
@@ -118,7 +127,21 @@ services:
         condition: service_healthy
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      # kibana_system is the built-in least-privilege account Kibana is meant to use.
+      # Never point this at the elastic superuser. Its password is NOT set by
+      # ELASTIC_PASSWORD - it has to be set through the _security API after ES boots
+      # (scripts/bootstrap.sh does this).
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD}
       NODE_OPTIONS: --max-old-space-size=${KIBANA_MAX_OLD_SPACE_MB}
+      # Without these, Kibana invents a random key at every boot, and anything built
+      # on Encrypted Saved Objects (Alerting, Actions/Connectors) fails with
+      # "Unable to create actions client because the Encrypted Saved Objects plugin
+      # is missing encryption key". They must stay STABLE across restarts - rotating
+      # them orphans every already-encrypted saved object. 32+ chars each.
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ESO_ENCRYPTION_KEY}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_ENCRYPTION_KEY}
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_ENCRYPTION_KEY}
     ports:
       # Defaults to 127.0.0.1 like everything else. Override KIBANA_BIND in .env to
       # publish on a LAN address - but read the README "known trade-offs" note first:

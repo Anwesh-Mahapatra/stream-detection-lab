@@ -2,6 +2,9 @@
 # tied to this box's on-disk volume, not something to share or commit
 docker/.env
 
+# holds the Grafana admin password and a machine-specific bind address
+monitoring/.env
+
 __pycache__/
 *.pyc
 .pytest_cache/
