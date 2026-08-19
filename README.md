@@ -138,7 +138,16 @@ curl -s http://127.0.0.1:5601/api/status
   custom sink) before `pipeline/jobs/k8s_audit_job.py`'s ES-sink half can work.
   Not solved here on purpose - it's an open question, not a hidden one.
 - **No auth anywhere in this stack** - Kafka listeners are PLAINTEXT, ES has no
-  users. Acceptable because everything binds to `127.0.0.1` only.
+  users. This was originally acceptable because everything bound to `127.0.0.1`
+  only. **That is no longer universally true:** `KIBANA_BIND` in `docker/.env` can
+  publish Kibana on a LAN address, and on this host it is set to one. Kibana has no
+  login, so anyone who can reach that address can read and write every index -
+  including the k8s audit data. Everything else (ES 9200, Flink 8081, Kafka 29092)
+  is still localhost-only. Set `KIBANA_BIND=127.0.0.1` to close it again.
+- **A ufw rule will not protect a published container port.** Docker installs its
+  own iptables rules that bypass ufw's INPUT chain, so `ufw allow`/`deny` has no
+  effect on anything in a `ports:` mapping. Source filtering has to go in the
+  `DOCKER-USER` chain instead. (ufw is currently inactive on this host anyway.)
 - **PyFlink is pinned to 1.18.1**, one release behind the newest available
   (`apache-flink` has gone past 2.0 upstream). Chosen deliberately for a
   well-documented, stable Flink-image/PyFlink-version pairing rather than chasing
