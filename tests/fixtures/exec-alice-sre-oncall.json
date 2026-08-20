@@ -1,0 +1,42 @@
+{
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "aa4d52d4-401d-4d72-8d70-43fc59794cbd",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/default/pods/test/exec?command=%2Fbin%2Fsh&command=-c&command=id&container=test&stdin=true&stdout=true&tty=true",
+    "verb": "get",
+    "user": {
+        "username": "alice",
+        "groups": [
+            "sre-oncall",
+            "system:authenticated"
+        ],
+        "extra": {
+            "authentication.kubernetes.io/credential-id": [
+                "X509SHA256=0607179c532ccc047cf6d348d6f53323054c5d4ae8547a2f8d6bf03b362885e1"
+            ]
+        }
+    },
+    "sourceIPs": [
+        "127.0.0.1"
+    ],
+    "userAgent": "kubectl/v1.36.3+k3s1 (linux/amd64) kubernetes/5aed4d7",
+    "objectRef": {
+        "resource": "pods",
+        "namespace": "default",
+        "name": "test",
+        "apiVersion": "v1",
+        "subresource": "exec"
+    },
+    "responseStatus": {
+        "metadata": {},
+        "code": 101
+    },
+    "requestReceivedTimestamp": "2026-08-20T16:02:34.634556Z",
+    "stageTimestamp": "2026-08-20T16:02:34.696210Z",
+    "annotations": {
+        "authorization.k8s.io/decision": "allow",
+        "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"sre-oncall-exec\" of ClusterRole \"exec-role\" to Group \"sre-oncall\""
+    }
+}
