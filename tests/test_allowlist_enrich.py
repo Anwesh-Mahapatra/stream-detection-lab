@@ -31,7 +31,7 @@ def built_state() -> dict:
 
 def test_allowed_entry_lands_in_state():
     state = built_state()
-    assert "default:system:admin" in state
+    assert "anwesh:sre-oncall" in state
 
 
 def test_tombstone_removes_key():
@@ -56,7 +56,7 @@ def test_tombstone_for_unknown_key_is_harmless():
 
 def test_approved_exec_true_for_allowlisted():
     """exec-response-complete: system:admin exec in default ns => approved."""
-    doc = parse_audit_event(load("exec-response-complete"))
+    doc = parse_audit_event(load("exec-alice-sre-oncall"))
     out = stamp_approval(doc, built_state())
     assert out["k8s"]["audit"]["approved_exec"] is True
 
